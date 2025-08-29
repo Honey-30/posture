@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTrack AI - Complete Fitness Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .navbar h1 {
+            color: #667eea;
+            font-size: 1.5rem;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .nav-btn {
+            background: none;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #333;
+        }
+        
+        .nav-btn:hover {
+            background: #f0f0f0;
+        }
+        
+        .nav-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Login/Register Page Styles */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+        
+        .auth-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .auth-title {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #667eea;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .auth-switch {
+            margin-top: 1rem;
+            text-align: center;
+        }
+        
+        .auth-switch button {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        
+        /* Dashboard Styles */
+        .dashboard {
+            color: white;
+        }
+        
+        .dashboard h1 {
+            margin-bottom: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            color: #333;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        /* Exercise Tracker Styles */
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .video-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .stats-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            height: fit-content;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 480px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .exercise-select {
+            margin-bottom: 20px;
+        }
+        
+        .exercise-select select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .exercise-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .status-detected {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .status-none {
+            background: #fafafa;
+            color: #616161;
+        }
+        
+        .feedback-section {
+            margin-top: 20px;
+        }
+        
+        .feedback-item {
+            background: #e3f2fd;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .feedback-item.warning {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+        
+        .feedback-item.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .success-message {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        /* Workout History Styles */
+        .workout-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .workout-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .workout-date {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .workout-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .workout-stat {
+            text-align: center;
+        }
+        
+        .workout-stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .workout-stat-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <h1>🏋️ FitTrack AI</h1>
+        <div class="nav-links" id="navLinks" style="display: none;">
+            <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
+            <button class="nav-btn" onclick="showPage('tracker')">Exercise Tracker</button>
+            <button class="nav-btn" onclick="showPage('history')">History</button>
+            <button class="nav-btn" onclick="showPage('profile')">Profile</button>
+            <button class="nav-btn" onclick="logout()">Logout</button>
+            <span id="userWelcome"></span>
+        </div>
+        <div id="authNav">
+            <button class="nav-btn" onclick="showPage('login')">Login</button>
+            <button class="nav-btn" onclick="showPage('register')">Register</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Login Page -->
+        <div id="loginPage" class="page active">
+            <div class="auth-container">
+                <div class="auth-card">
+                    <h2 class="auth-title">Sign In to FitTrack AI</h2>
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" class="form-control" value="demo@example.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Password</label>
+                            <input type="password" id="loginPassword" class="form-control" value="demo123" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Sign In</button>
+                    </form>
+                    <div class="auth-switch">
+                        <p>Don't have an account? <button type="button" onclick="showPage('register')">Sign Up</button></p>
+                    </div>
+                    <div class="error-message" id="loginError"></div>
+                    <div class="success-message" id="loginSuccess"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Register Page -->
+        <div id="registerPage" class="page">
+            <div class="auth-container">
+                <div class="auth-card">
+                    <h2 class="auth-title">Create Account</h2>
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <label for="registerEmail">Email</label>
+                            <input type="email" id="registerEmail" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerUsername">Username</label>
+                            <input type="text" id="registerUsername" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Password</label>
+                            <input type="password" id="registerPassword" class="form-control" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Sign Up</button>
+                    </form>
+                    <div class="auth-switch">
+                        <p>Already have an account? <button type="button" onclick="showPage('login')">Sign In</button></p>
+                    </div>
+                    <div class="error-message" id="registerError"></div>
+                    <div class="success-message" id="registerSuccess"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="page">
+            <div class="dashboard">
+                <h1>📊 Dashboard</h1>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalWorkouts">0</div>
+                        <div class="stat-label">Total Workouts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalMinutes">0</div>
+                        <div class="stat-label">Total Minutes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalCalories">0</div>
+                        <div class="stat-label">Calories Burned</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="currentStreak">0</div>
+                        <div class="stat-label">Day Streak</div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-success" onclick="showPage('tracker')">🚀 Start New Workout</button>
+                    <button class="btn btn-secondary" onclick="showPage('history')">📈 View History</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exercise Tracker Page -->
+        <div id="trackerPage" class="page">
+            <h2 style="color: white; margin-bottom: 1rem;">🏃‍♀️ Exercise Tracker</h2>
+            
+            <div class="main-content">
+                <div class="video-section">
+                    <div class="exercise-select">
+                        <select id="exerciseType" title="Select Exercise Type">
+                            <option value="auto">Auto Detect Exercise</option>
+                            <option value="push_up">Push-up</option>
+                            <option value="squat">Squat</option>
+                            <option value="plank">Plank</option>
+                            <option value="jumping_jack">Jumping Jack</option>
+                        </select>
+                    </div>
+                    
+                    <div class="video-container">
+                        <video id="webcam" autoplay muted></video>
+                        <canvas id="canvas"></canvas>
+                        
+                        <div class="loading" id="loading">
+                            <p>Loading AI models... Please wait.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="controls">
+                        <button class="btn btn-primary" id="startBtn" onclick="startExercise()">🚀 Start Tracking</button>
+                        <button class="btn btn-secondary" id="pauseBtn" onclick="pauseExercise()" style="display: none;">⏸️ Pause</button>
+                        <button class="btn btn-danger" id="stopBtn" onclick="stopExercise()" style="display: none;">⏹️ Stop</button>
+                    </div>
+                    
+                    <div class="error-message" id="trackerError"></div>
+                    <div class="success-message" id="trackerSuccess"></div>
+                </div>
+                
+                <div class="stats-section">
+                    <h3>📊 Live Stats</h3>
+                    
+                    <div class="exercise-status status-none" id="exerciseStatus">No exercise detected</div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="repCount">0</div>
+                            <div class="stat-label">Reps</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="formScore">0%</div>
+                            <div class="stat-label">Form Score</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="timer">00:00</div>
+                            <div class="stat-label">Time</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="calories">0</div>
+                            <div class="stat-label">Calories</div>
+                        </div>
+                    </div>
+                    
+                    <div class="feedback-section">
+                        <h4>💬 Form Feedback</h4>
+                        <div id="feedbackList">
+                            <div class="feedback-item">Start exercising to get real-time feedback!</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Page -->
+        <div id="historyPage" class="page">
+            <h2 style="color: white; margin-bottom: 2rem;">📈 Workout History</h2>
+            <div id="workoutHistory" class="workout-grid">
+                <div class="workout-card">
+                    <div class="text-center">
+                        <p>No workouts yet. Start your first workout to see your progress here!</p>
+                        <button class="btn btn-primary" onclick="showPage('tracker')" style="margin-top: 1rem;">Start Workout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Page -->
+        <div id="profilePage" class="page">
+            <div style="color: white;">
+                <h2 style="margin-bottom: 2rem;">👤 Profile</h2>
+                <div class="auth-card" style="max-width: 600px; margin: 0 auto;">
+                    <form id="profileForm">
+                        <div class="form-group">
+                            <label for="fullName">Full Name</label>
+                            <input type="text" id="fullName" class="form-control">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label for="age">Age</label>
+                                <input type="number" id="age" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="gender">Gender</label>
+                                <select id="gender" class="form-control">
+                                    <option value="">Select Gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label for="height">Height (cm)</label>
+                                <input type="number" id="height" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="weight">Weight (kg)</label>
+                                <input type="number" id="weight" class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="fitnessLevel">Fitness Level</label>
+                            <select id="fitnessLevel" class="form-control">
+                                <option value="beginner">Beginner</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="advanced">Advanced</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Profile</button>
+                    </form>
+                    <div class="error-message" id="profileError"></div>
+                    <div class="success-message" id="profileSuccess"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = localStorage.getItem('authToken');
+        let currentUser = null;
+        let detector = null;
+        let webcam = null;
+        let canvas = null;
+        let ctx = null;
+        let isTracking = false;
+        let isPaused = false;
+        let animationId = null;
+        let timerInterval = null;
+        let startTime = null;
+        let repCount = 0;
+        let lastStage = 'neutral';
+        let calories = 0;
+        let currentWorkoutId = null;
+
+        // Initialize app
+        window.addEventListener('load', async () => {
+            await checkAuth();
+            if (authToken) {
+                await loadDashboardData();
+                await loadWorkoutHistory();
+            }
+        });
+
+        // Authentication functions
+        async function checkAuth() {
+            if (authToken) {
+                try {
+                    const response = await fetch(`${API_BASE}/auth/me`, {
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    
+                    if (response.ok) {
+                        currentUser = await response.json();
+                        showAuthenticatedUI();
+                        showPage('dashboard');
+                    } else {
+                        logout();
+                    }
+                } catch (error) {
+                    console.error('Auth check failed:', error);
+                    logout();
+                }
+            }
+        }
+
+        function showAuthenticatedUI() {
+            document.getElementById('authNav').style.display = 'none';
+            document.getElementById('navLinks').style.display = 'flex';
+            document.getElementById('userWelcome').textContent = `Welcome, ${currentUser?.username || 'User'}!`;
+        }
+
+        function showUnauthenticatedUI() {
+            document.getElementById('authNav').style.display = 'flex';
+            document.getElementById('navLinks').style.display = 'none';
+        }
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.access_token;
+                    currentUser = data.user;
+                    localStorage.setItem('authToken', authToken);
+                    showMessage('loginSuccess', 'Login successful!');
+                    showAuthenticatedUI();
+                    await loadDashboardData();
+                    showPage('dashboard');
+                } else {
+                    showMessage('loginError', data.detail || 'Login failed');
+                }
+            } catch (error) {
+                showMessage('loginError', 'Network error. Please try again.');
+            }
+        });
+
+        // Register
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('registerEmail').value;
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.access_token;
+                    currentUser = data.user;
+                    localStorage.setItem('authToken', authToken);
+                    showMessage('registerSuccess', 'Registration successful!');
+                    showAuthenticatedUI();
+                    await loadDashboardData();
+                    showPage('dashboard');
+                } else {
+                    showMessage('registerError', data.detail || 'Registration failed');
+                }
+            } catch (error) {
+                showMessage('registerError', 'Network error. Please try again.');
+            }
+        });
+
+        // Logout
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            showUnauthenticatedUI();
+            showPage('login');
+        }
+
+        // Page navigation
+        function showPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected page
+            document.getElementById(pageId + 'Page').classList.add('active');
+            
+            // Update active nav button
+            event?.target?.classList.add('active');
+            
+            // Initialize page-specific content
+            if (pageId === 'tracker') {
+                initTracker();
+            }
+        }
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            if (!authToken) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/workouts/stats/summary`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (response.ok) {
+                    const stats = await response.json();
+                    document.getElementById('totalWorkouts').textContent = stats.total_workouts;
+                    document.getElementById('totalMinutes').textContent = stats.total_minutes;
+                    document.getElementById('totalCalories').textContent = Math.round(stats.total_calories);
+                    document.getElementById('currentStreak').textContent = stats.current_streak;
+                }
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+            }
+        }
+
+        // Load workout history
+        async function loadWorkoutHistory() {
+            if (!authToken) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/workouts/`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    displayWorkoutHistory(data.workouts);
+                }
+            } catch (error) {
+                console.error('Failed to load workout history:', error);
+            }
+        }
+
+        // Display workout history
+        function displayWorkoutHistory(workouts) {
+            const container = document.getElementById('workoutHistory');
+            
+            if (workouts.length === 0) {
+                container.innerHTML = `
+                    <div class="workout-card">
+                        <div class="text-center">
+                            <p>No workouts yet. Start your first workout to see your progress here!</p>
+                            <button class="btn btn-primary" onclick="showPage('tracker')" style="margin-top: 1rem;">Start Workout</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = workouts.map(workout => `
+                <div class="workout-card">
+                    <h4>${workout.name || 'Workout Session'}</h4>
+                    <div class="workout-date">${new Date(workout.start_time).toLocaleDateString()}</div>
+                    <div class="workout-stats">
+                        <div class="workout-stat">
+                            <div class="workout-stat-value">${formatDuration(workout.duration_seconds)}</div>
+                            <div class="workout-stat-label">Duration</div>
+                        </div>
+                        <div class="workout-stat">
+                            <div class="workout-stat-value">${workout.exercise_count}</div>
+                            <div class="workout-stat-label">Exercises</div>
+                        </div>
+                        <div class="workout-stat">
+                            <div class="workout-stat-value">${Math.round(workout.calories_burned || 0)}</div>
+                            <div class="workout-stat-label">Calories</div>
+                        </div>
+                        <div class="workout-stat">
+                            <div class="workout-stat-value">${workout.end_time ? '✅' : '🔄'}</div>
+                            <div class="workout-stat-label">Status</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Tracker initialization
+        async function initTracker() {
+            if (!detector) {
+                try {
+                    webcam = document.getElementById('webcam');
+                    canvas = document.getElementById('canvas');
+                    ctx = canvas.getContext('2d');
+                    
+                    // Show loading
+                    document.getElementById('loading').style.display = 'block';
+                    
+                    // Initialize TensorFlow.js
+                    await tf.ready();
+                    
+                    // Load pose detection model
+                    detector = await poseDetection.createDetector(
+                        poseDetection.SupportedModels.MoveNet,
+                        { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+                    );
+                    
+                    // Setup webcam
+                    await setupWebcam();
+                    
+                    // Hide loading
+                    document.getElementById('loading').style.display = 'none';
+                    
+                } catch (error) {
+                    console.error('Tracker initialization error:', error);
+                    showMessage('trackerError', 'Failed to initialize camera or AI models');
+                    document.getElementById('loading').style.display = 'none';
+                }
+            }
+        }
+
+        // Setup webcam
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                
+                webcam.srcObject = stream;
+                
+                return new Promise((resolve) => {
+                    webcam.onloadedmetadata = () => {
+                        canvas.width = webcam.videoWidth;
+                        canvas.height = webcam.videoHeight;
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                throw new Error('Could not access webcam. Please ensure you have given camera permissions.');
+            }
+        }
+
+        // Exercise tracking functions
+        async function startExercise() {
+            if (!detector) {
+                showMessage('trackerError', 'AI model not loaded yet. Please wait and try again.');
+                return;
+            }
+            
+            try {
+                // Start workout session
+                const response = await fetch(`${API_BASE}/workouts/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: 'Exercise Session' })
+                });
+                
+                if (response.ok) {
+                    const workout = await response.json();
+                    currentWorkoutId = workout.id;
+                }
+            } catch (error) {
+                console.error('Failed to start workout:', error);
+            }
+            
+            isTracking = true;
+            isPaused = false;
+            startTime = Date.now();
+            repCount = 0;
+            calories = 0;
+            
+            // Update UI
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('pauseBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            // Start timer
+            startTimer();
+            
+            // Start detection loop
+            detectPose();
+        }
+
+        function pauseExercise() {
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                document.getElementById('pauseBtn').textContent = '▶️ Resume';
+                clearInterval(timerInterval);
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+            } else {
+                document.getElementById('pauseBtn').textContent = '⏸️ Pause';
+                startTimer();
+                detectPose();
+            }
+        }
+
+        async function stopExercise() {
+            isTracking = false;
+            isPaused = false;
+            
+            // Clear timers and animations
+            clearInterval(timerInterval);
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            // End workout session
+            if (currentWorkoutId) {
+                try {
+                    const duration = Math.floor((Date.now() - startTime) / 1000);
+                    await fetch(`${API_BASE}/workouts/${currentWorkoutId}/end`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            calories_burned: calories,
+                            duration_seconds: duration
+                        })
+                    });
+                    
+                    showMessage('trackerSuccess', `Workout completed! Duration: ${formatTime(duration)}, Calories: ${Math.round(calories)}`);
+                    
+                    // Reload dashboard data
+                    await loadDashboardData();
+                    await loadWorkoutHistory();
+                    
+                } catch (error) {
+                    console.error('Failed to end workout:', error);
+                }
+            }
+            
+            // Update UI
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('pauseBtn').textContent = '⏸️ Pause';
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Reset status
+            updateExerciseStatus('none', null);
+            updateFeedback(['Workout completed! Great job! 🎉']);
+            
+            currentWorkoutId = null;
+        }
+
+        // Main pose detection loop
+        async function detectPose() {
+            if (!isTracking || isPaused) return;
+            
+            try {
+                const poses = await detector.estimatePoses(webcam);
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                if (poses.length > 0) {
+                    const pose = poses[0];
+                    drawPose(pose);
+                    await analyzeExercise(pose);
+                }
+                
+                animationId = requestAnimationFrame(detectPose);
+                
+            } catch (error) {
+                console.error('Detection error:', error);
+            }
+        }
+
+        // Analyze exercise using backend API
+        async function analyzeExercise(pose) {
+            try {
+                const exerciseType = document.getElementById('exerciseType').value;
+                const selectedType = exerciseType === 'auto' ? null : exerciseType;
+                
+                const formData = new FormData();
+                formData.append('keypoints', JSON.stringify(pose.keypoints));
+                if (selectedType) {
+                    formData.append('exercise_type', selectedType);
+                }
+                
+                const response = await fetch(`${API_BASE}/exercises/analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) return;
+                
+                const analysis = await response.json();
+                
+                if (analysis.exercise_detected) {
+                    updateExerciseStatus('detected', analysis.exercise_type);
+                    updateFormScore(Math.round(analysis.form_score * 100));
+                    updateFeedback(analysis.feedback);
+                    
+                    // Handle rep counting
+                    const currentStage = analysis.stage;
+                    if (lastStage === 'down' && currentStage === 'up') {
+                        repCount++;
+                        updateRepCount(repCount);
+                        updateCalories(analysis.exercise_type);
+                    }
+                    lastStage = currentStage;
+                } else {
+                    updateExerciseStatus('none', null);
+                }
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+            }
+        }
+
+        // Draw pose keypoints and skeleton
+        function drawPose(pose) {
+            // Draw keypoints
+            pose.keypoints.forEach(keypoint => {
+                if (keypoint.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.arc(keypoint.x, keypoint.y, 6, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#4CAF50';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw skeleton connections
+            const connections = [
+                [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // arms
+                [5, 11], [6, 12], [11, 12], // torso
+                [11, 13], [13, 15], [12, 14], [14, 16] // legs
+            ];
+            
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#3f51b5';
+            
+            connections.forEach(([i, j]) => {
+                const kp1 = pose.keypoints[i];
+                const kp2 = pose.keypoints[j];
+                
+                if (kp1.score > 0.3 && kp2.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.moveTo(kp1.x, kp1.y);
+                    ctx.lineTo(kp2.x, kp2.y);
+                    ctx.stroke();
+                }
+            });
+        }
+
+        // UI update functions
+        function updateExerciseStatus(status, exerciseType) {
+            const statusElement = document.getElementById('exerciseStatus');
+            
+            if (status === 'detected' && exerciseType) {
+                statusElement.textContent = exerciseType.replace('_', ' ').toUpperCase();
+                statusElement.className = 'exercise-status status-detected';
+            } else {
+                statusElement.textContent = 'No exercise detected';
+                statusElement.className = 'exercise-status status-none';
+            }
+        }
+
+        function updateRepCount(count) {
+            document.getElementById('repCount').textContent = count;
+        }
+
+        function updateFormScore(score) {
+            document.getElementById('formScore').textContent = score + '%';
+        }
+
+        function updateFeedback(feedbackList) {
+            const feedbackContainer = document.getElementById('feedbackList');
+            feedbackContainer.innerHTML = '';
+            
+            feedbackList.forEach(feedback => {
+                const feedbackItem = document.createElement('div');
+                feedbackItem.className = 'feedback-item';
+                
+                if (feedback.toLowerCase().includes('great') || feedback.toLowerCase().includes('good') || feedback.toLowerCase().includes('excellent')) {
+                    feedbackItem.className += ' success';
+                } else if (feedback.toLowerCase().includes('careful') || feedback.toLowerCase().includes('avoid')) {
+                    feedbackItem.className += ' warning';
+                } else if (feedback.toLowerCase().includes('incorrect') || feedback.toLowerCase().includes('wrong')) {
+                    feedbackItem.className += ' error';
+                }
+                
+                feedbackItem.textContent = feedback;
+                feedbackContainer.appendChild(feedbackItem);
+            });
+        }
+
+        function updateCalories(exerciseType) {
+            const calorieMultiplier = {
+                'push_up': 0.3,
+                'squat': 0.32,
+                'jumping_jack': 0.2,
+                'plank': 0.083
+            };
+            
+            if (exerciseType in calorieMultiplier) {
+                calories += calorieMultiplier[exerciseType];
+                document.getElementById('calories').textContent = Math.round(calories);
+            }
+        }
+
+        // Timer functions
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (!isPaused) {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    document.getElementById('timer').textContent = formatTime(elapsed);
+                }
+            }, 1000);
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return 'N/A';
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}m ${secs}s`;
+        }
+
+        // Profile management
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const profileData = {
+                full_name: document.getElementById('fullName').value,
+                age: parseInt(document.getElementById('age').value) || null,
+                gender: document.getElementById('gender').value,
+                height: parseFloat(document.getElementById('height').value) || null,
+                weight: parseFloat(document.getElementById('weight').value) || null,
+                fitness_level: document.getElementById('fitnessLevel').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/users/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(profileData)
+                });
+                
+                if (response.ok) {
+                    showMessage('profileSuccess', 'Profile updated successfully!');
+                } else {
+                    showMessage('profileError', 'Failed to update profile');
+                }
+            } catch (error) {
+                showMessage('profileError', 'Network error. Please try again.');
+            }
+        });
+
+        // Utility functions
+        function showMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

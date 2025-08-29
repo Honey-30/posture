@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTrack AI - Exercise Form Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .video-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .stats-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            height: fit-content;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 480px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .exercise-select {
+            margin-bottom: 20px;
+        }
+        
+        .exercise-select select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .feedback-section {
+            margin-top: 20px;
+        }
+        
+        .feedback-item {
+            background: #e3f2fd;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .feedback-item.warning {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+        
+        .feedback-item.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        
+        .exercise-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .status-detected {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .status-none {
+            background: #fafafa;
+            color: #616161;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏋️ FitTrack AI</h1>
+            <p>Real-time Exercise Form Analysis with AI</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="video-section">
+                <div class="exercise-select">
+                    <select id="exerciseType">
+                        <option value="auto">Auto Detect Exercise</option>
+                        <option value="push_up">Push-up</option>
+                        <option value="squat">Squat</option>
+                        <option value="plank">Plank</option>
+                        <option value="jumping_jack">Jumping Jack</option>
+                    </select>
+                </div>
+                
+                <div class="video-container">
+                    <video id="webcam" autoplay muted playsinline></video>
+                    <canvas id="canvas"></canvas>
+                    
+                    <div class="loading" id="loading">
+                        <p>Loading AI models... Please wait.</p>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-primary" id="startBtn" onclick="startExercise()">
+                        🚀 Start Tracking
+                    </button>
+                    <button class="btn btn-secondary" id="pauseBtn" onclick="pauseExercise()" style="display: none;">
+                        ⏸️ Pause
+                    </button>
+                    <button class="btn btn-danger" id="stopBtn" onclick="stopExercise()" style="display: none;">
+                        ⏹️ Stop
+                    </button>
+                </div>
+                
+                <div class="error-message" id="errorMessage"></div>
+            </div>
+            
+            <div class="stats-section">
+                <h3>📊 Live Stats</h3>
+                
+                <div class="exercise-status status-none" id="exerciseStatus">
+                    No exercise detected
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="repCount">0</div>
+                        <div class="stat-label">Reps</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="formScore">0%</div>
+                        <div class="stat-label">Form Score</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="timer">00:00</div>
+                        <div class="stat-label">Time</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="calories">0</div>
+                        <div class="stat-label">Calories</div>
+                    </div>
+                </div>
+                
+                <div class="feedback-section">
+                    <h4>💬 Form Feedback</h4>
+                    <div id="feedbackList">
+                        <div class="feedback-item">Start exercising to get real-time feedback!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let detector = null;
+        let webcam = null;
+        let canvas = null;
+        let ctx = null;
+        let isTracking = false;
+        let isPaused = false;
+        let animationId = null;
+        let timerInterval = null;
+        let startTime = null;
+        let repCount = 0;
+        let lastStage = 'neutral';
+        let calories = 0;
+        
+        // Initialize the application
+        async function init() {
+            try {
+                webcam = document.getElementById('webcam');
+                canvas = document.getElementById('canvas');
+                ctx = canvas.getContext('2d');
+                
+                // Show loading
+                document.getElementById('loading').style.display = 'block';
+                
+                // Initialize TensorFlow.js
+                await tf.ready();
+                console.log('TensorFlow.js is ready!');
+                
+                // Load pose detection model
+                detector = await poseDetection.createDetector(
+                    poseDetection.SupportedModels.MoveNet,
+                    {
+                        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
+                    }
+                );
+                
+                console.log('Pose detection model loaded!');
+                
+                // Setup webcam
+                await setupWebcam();
+                
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                
+                console.log('Application initialized successfully!');
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError('Failed to initialize. Please refresh the page and try again.');
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        // Setup webcam
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                
+                webcam.srcObject = stream;
+                
+                return new Promise((resolve) => {
+                    webcam.onloadedmetadata = () => {
+                        // Set canvas dimensions to match video
+                        canvas.width = webcam.videoWidth;
+                        canvas.height = webcam.videoHeight;
+                        resolve();
+                    };
+                });
+                
+            } catch (error) {
+                console.error('Webcam setup error:', error);
+                throw new Error('Could not access webcam. Please ensure you have given camera permissions.');
+            }
+        }
+        
+        // Start exercise tracking
+        async function startExercise() {
+            if (!detector) {
+                showError('AI model not loaded yet. Please wait and try again.');
+                return;
+            }
+            
+            isTracking = true;
+            isPaused = false;
+            startTime = Date.now();
+            repCount = 0;
+            calories = 0;
+            
+            // Update UI
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('pauseBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            // Start timer
+            startTimer();
+            
+            // Start detection loop
+            detectPose();
+        }
+        
+        // Pause exercise tracking
+        function pauseExercise() {
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                document.getElementById('pauseBtn').textContent = '▶️ Resume';
+                clearInterval(timerInterval);
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+            } else {
+                document.getElementById('pauseBtn').textContent = '⏸️ Pause';
+                startTimer();
+                detectPose();
+            }
+        }
+        
+        // Stop exercise tracking
+        function stopExercise() {
+            isTracking = false;
+            isPaused = false;
+            
+            // Clear timers and animations
+            clearInterval(timerInterval);
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            // Update UI
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('pauseBtn').textContent = '⏸️ Pause';
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Reset status
+            updateExerciseStatus('none', null);
+            
+            // Show completion message
+            const duration = Math.floor((Date.now() - startTime) / 1000);
+            updateFeedback([
+                `🎉 Workout completed! Duration: ${formatTime(duration)}`,
+                `💪 Total reps: ${repCount}`,
+                `🔥 Calories burned: ${Math.round(calories)}`
+            ]);
+        }
+        
+        // Main pose detection loop
+        async function detectPose() {
+            if (!isTracking || isPaused) return;
+            
+            try {
+                // Detect pose
+                const poses = await detector.estimatePoses(webcam);
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                if (poses.length > 0) {
+                    const pose = poses[0];
+                    
+                    // Draw pose
+                    drawPose(pose);
+                    
+                    // Analyze exercise
+                    await analyzeExercise(pose);
+                }
+                
+                // Continue loop
+                animationId = requestAnimationFrame(detectPose);
+                
+            } catch (error) {
+                console.error('Detection error:', error);
+                showError('Detection error occurred. Please try again.');
+            }
+        }
+        
+        // Analyze exercise using backend API
+        async function analyzeExercise(pose) {
+            try {
+                const exerciseType = document.getElementById('exerciseType').value;
+                const selectedType = exerciseType === 'auto' ? null : exerciseType;
+                
+                const formData = new FormData();
+                formData.append('keypoints', JSON.stringify(pose.keypoints));
+                if (selectedType) {
+                    formData.append('exercise_type', selectedType);
+                }
+                
+                const response = await fetch('http://localhost:8000/api/exercises/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Analysis request failed');
+                }
+                
+                const analysis = await response.json();
+                
+                // Update UI with results
+                if (analysis.exercise_detected) {
+                    updateExerciseStatus('detected', analysis.exercise_type);
+                    updateFormScore(Math.round(analysis.form_score * 100));
+                    updateFeedback(analysis.feedback);
+                    
+                    // Handle rep counting
+                    const currentStage = analysis.stage;
+                    if (lastStage === 'down' && currentStage === 'up') {
+                        repCount++;
+                        updateRepCount(repCount);
+                        updateCalories(analysis.exercise_type);
+                    }
+                    lastStage = currentStage;
+                } else {
+                    updateExerciseStatus('none', null);
+                }
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                // Don't show error for every frame, just log it
+            }
+        }
+        
+        // Draw pose keypoints and skeleton
+        function drawPose(pose) {
+            // Draw keypoints
+            pose.keypoints.forEach(keypoint => {
+                if (keypoint.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.arc(keypoint.x, keypoint.y, 6, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#4CAF50';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+            
+            // Draw skeleton connections
+            const connections = [
+                [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // arms
+                [5, 11], [6, 12], [11, 12], // torso
+                [11, 13], [13, 15], [12, 14], [14, 16] // legs
+            ];
+            
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#3f51b5';
+            
+            connections.forEach(([i, j]) => {
+                const kp1 = pose.keypoints[i];
+                const kp2 = pose.keypoints[j];
+                
+                if (kp1.score > 0.3 && kp2.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.moveTo(kp1.x, kp1.y);
+                    ctx.lineTo(kp2.x, kp2.y);
+                    ctx.stroke();
+                }
+            });
+        }
+        
+        // Update exercise status
+        function updateExerciseStatus(status, exerciseType) {
+            const statusElement = document.getElementById('exerciseStatus');
+            
+            if (status === 'detected' && exerciseType) {
+                statusElement.textContent = exerciseType.replace('_', ' ').toUpperCase();
+                statusElement.className = 'exercise-status status-detected';
+            } else {
+                statusElement.textContent = 'No exercise detected';
+                statusElement.className = 'exercise-status status-none';
+            }
+        }
+        
+        // Update rep count
+        function updateRepCount(count) {
+            document.getElementById('repCount').textContent = count;
+        }
+        
+        // Update form score
+        function updateFormScore(score) {
+            document.getElementById('formScore').textContent = score + '%';
+        }
+        
+        // Update feedback
+        function updateFeedback(feedbackList) {
+            const feedbackContainer = document.getElementById('feedbackList');
+            feedbackContainer.innerHTML = '';
+            
+            feedbackList.forEach(feedback => {
+                const feedbackItem = document.createElement('div');
+                feedbackItem.className = 'feedback-item';
+                
+                // Determine feedback type based on content
+                if (feedback.toLowerCase().includes('great') || feedback.toLowerCase().includes('good') || feedback.toLowerCase().includes('excellent')) {
+                    feedbackItem.className += ' success';
+                } else if (feedback.toLowerCase().includes('careful') || feedback.toLowerCase().includes('avoid')) {
+                    feedbackItem.className += ' warning';
+                } else if (feedback.toLowerCase().includes('incorrect') || feedback.toLowerCase().includes('wrong')) {
+                    feedbackItem.className += ' error';
+                }
+                
+                feedbackItem.textContent = feedback;
+                feedbackContainer.appendChild(feedbackItem);
+            });
+        }
+        
+        // Update calories
+        function updateCalories(exerciseType) {
+            const calorieMultiplier = {
+                'push_up': 0.3,
+                'squat': 0.32,
+                'jumping_jack': 0.2,
+                'plank': 0.083
+            };
+            
+            if (exerciseType in calorieMultiplier) {
+                calories += calorieMultiplier[exerciseType];
+                document.getElementById('calories').textContent = Math.round(calories);
+            }
+        }
+        
+        // Timer functions
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (!isPaused) {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    document.getElementById('timer').textContent = formatTime(elapsed);
+                }
+            }, 1000);
+        }
+        
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // Show error message
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Initialize the app when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
